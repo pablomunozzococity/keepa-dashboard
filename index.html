@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zococity · Buy Box Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f6f8; --surface: #ffffff; --surface2: #eef1f5;
+    --border: #dde2e8; --accent: #2ecc71; --lose: #e74c3c;
+    --neutral: #3498db; --text: #1a1f25; --text2: #6b7a8d;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#f4f6f8; color:#1a1f25; font-family:'Syne',sans-serif; min-height:100vh; }
+
+  /* ── LOGIN ── */
+  #loginScreen {
+    position:fixed; inset:0; background:#1a7f4b;
+    display:flex; align-items:center; justify-content:center; z-index:999;
+  }
+  .login-box {
+    background:#fff; border-radius:20px; padding:48px 40px;
+    width:360px; box-shadow:0 20px 60px rgba(0,0,0,0.2); text-align:center;
+  }
+  .login-logo { font-size:22px; font-weight:800; color:#1a7f4b; margin-bottom:8px; }
+  .login-logo span { color:#2ecc71; }
+  .login-sub { font-size:13px; color:#6b7a8d; margin-bottom:32px; }
+  .login-field { width:100%; padding:12px 16px; border:1px solid #dde2e8; border-radius:10px; font-family:'Syne',sans-serif; font-size:14px; outline:none; margin-bottom:12px; transition:border-color .2s; }
+  .login-field:focus { border-color:#2ecc71; }
+  .login-btn { width:100%; padding:13px; background:#1a7f4b; color:#fff; border:none; border-radius:10px; font-family:'Syne',sans-serif; font-size:15px; font-weight:700; cursor:pointer; transition:background .2s; margin-top:4px; }
+  .login-btn:hover { background:#166e40; }
+  .login-error { color:#e74c3c; font-size:13px; margin-top:10px; min-height:20px; }
+  .login-loading { color:#6b7a8d; font-size:13px; margin-top:10px; }
+
+  /* ── HEADER ── */
+  header { padding:20px 40px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:#1a7f4b; z-index:100; border-bottom:1px solid #166e40; }
+  .logo { font-size:20px; font-weight:800; color:#fff; letter-spacing:-.5px; }
+  .logo span { color:#2ecc71; }
+  .header-right { display:flex; align-items:center; gap:32px; }
+  .header-stats { display:flex; gap:32px; }
+  .hstat { text-align:right; }
+  .hstat-val { font-family:'DM Mono',monospace; font-size:22px; font-weight:500; color:#fff; }
+  .hstat-val.green { color:#a8f0cb; }
+  .hstat-val.red   { color:#f9a8a0; }
+  .hstat-label { font-size:11px; color:rgba(255,255,255,.7); text-transform:uppercase; letter-spacing:1px; }
+  .btn-logout { background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.3); color:#fff; padding:8px 16px; border-radius:8px; font-family:'Syne',sans-serif; font-size:12px; cursor:pointer; transition:all .2s; }
+  .btn-logout:hover { background:rgba(255,255,255,.25); }
+  .last-update { font-size:11px; color:rgba(255,255,255,.6); font-family:'DM Mono',monospace; }
+
+  /* ── LOADING STATE ── */
+  #loadingBar { background:#1a7f4b; height:3px; width:0; transition:width .3s; position:fixed; top:0; left:0; z-index:200; }
+  .spinner-wrap { text-align:center; padding:80px 40px; color:#6b7a8d; }
+  .spinner { width:40px; height:40px; border:3px solid #dde2e8; border-top-color:#2ecc71; border-radius:50%; animation:spin .8s linear infinite; margin:0 auto 16px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* ── FILTERS ── */
+  .filters { display:flex; gap:12px; padding:16px 40px; flex-wrap:wrap; align-items:center; background:#f4f6f8; border-bottom:1px solid #dde2e8; margin-bottom:24px; }
+  .filter-label { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:#6b7a8d; margin-right:4px; }
+  select, input[type="text"] { background:#fff; border:1px solid #dde2e8; color:#1a1f25; padding:8px 14px; border-radius:8px; font-family:'Syne',sans-serif; font-size:13px; outline:none; transition:border-color .2s; min-width:140px; }
+  select:focus, input:focus { border-color:#2ecc71; }
+  .filter-btn { padding:8px 16px; border-radius:8px; border:1px solid #dde2e8; background:#fff; color:#6b7a8d; font-family:'Syne',sans-serif; font-size:13px; cursor:pointer; transition:all .2s; }
+  .filter-btn.active { background:#2ecc71; color:#fff; border-color:#2ecc71; font-weight:700; }
+
+  /* ── SUMMARY CARDS ── */
+  .summary { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; padding:24px 40px; }
+  .card { background:#fff; border:1px solid #dde2e8; border-radius:12px; padding:20px 24px; position:relative; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+  .card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+  .card.green::before { background:#2ecc71; }
+  .card.red::before   { background:#e74c3c; }
+  .card.yellow::before{ background:#f39c12; }
+  .card.blue::before  { background:#3498db; }
+  .card-val { font-family:'DM Mono',monospace; font-size:36px; font-weight:500; line-height:1; margin-bottom:6px; }
+  .card.green .card-val  { color:#2ecc71; }
+  .card.red .card-val    { color:#e74c3c; }
+  .card.yellow .card-val { color:#f39c12; }
+  .card.blue .card-val   { color:#3498db; }
+  .card-label { font-size:12px; color:#6b7a8d; text-transform:uppercase; letter-spacing:.8px; }
+
+  /* ── TABLE ── */
+  .table-wrap { margin:0 40px 40px; border:1px solid #dde2e8; border-radius:12px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  thead { background:#eef1f5; border-bottom:1px solid #dde2e8; }
+  th { padding:12px 14px; text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.8px; color:#6b7a8d; font-weight:600; cursor:pointer; user-select:none; white-space:nowrap; }
+  th.no-sort { cursor:default; }
+  th:not(.no-sort):hover { color:#2ecc71; }
+  td { padding:10px 14px; border-bottom:1px solid #eef1f5; vertical-align:middle; }
+  tr:last-child td { border-bottom:none; }
+  tr:hover td { background:rgba(26,127,75,.04); }
+
+  .product-img { width:52px; height:52px; border-radius:8px; object-fit:contain; background:#f8f9fa; border:1px solid #dde2e8; display:block; }
+  .product-img-placeholder { width:52px; height:52px; border-radius:8px; background:#eef1f5; border:1px solid #dde2e8; display:flex; align-items:center; justify-content:center; font-size:20px; }
+  .product-name { max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .asin { font-family:'DM Mono',monospace; font-size:11px; color:#8a9bb0; margin-top:2px; }
+
+  .btn-amazon { display:inline-flex; align-items:center; gap:4px; background:rgba(46,204,113,.1); color:#2ecc71; border:1px solid rgba(46,204,113,.25); border-radius:6px; padding:5px 10px; font-size:11px; font-weight:700; font-family:'Syne',sans-serif; text-decoration:none; transition:all .2s; }
+  .btn-amazon:hover { background:rgba(46,204,113,.2); }
+
+  .badge { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; white-space:nowrap; max-width:180px; overflow:hidden; text-overflow:ellipsis; }
+  .badge.win  { background:rgba(46,204,113,.12); color:#2ecc71; border:1px solid rgba(46,204,113,.25); }
+  .badge.lose { background:rgba(231,76,60,.12);  color:#e74c3c; border:1px solid rgba(231,76,60,.25); }
+  .badge.nobox{ background:#f0f2f5; color:#6b7a8d; border:1px solid #dde2e8; }
+
+  .price      { font-family:'DM Mono',monospace; font-size:14px; color:#1a1f25; }
+  .price-min  { font-family:'DM Mono',monospace; font-size:13px; color:#3498db; }
+  .price-change.up   { font-family:'DM Mono',monospace; font-size:12px; color:#e74c3c; }
+  .price-change.down { font-family:'DM Mono',monospace; font-size:12px; color:#2ecc71; }
+  .country-flag { font-size:22px; }
+  .fba-yes { color:#2ecc71; font-size:11px; font-weight:700; }
+  .fba-no  { color:#aab4c0; font-size:11px; }
+
+  /* ── PAGINATION ── */
+  .pagination { display:flex; align-items:center; justify-content:space-between; padding:16px 40px; border-top:1px solid #dde2e8; font-size:13px; color:#6b7a8d; }
+  .pag-btns { display:flex; gap:8px; }
+  .pag-btn { padding:6px 14px; border-radius:6px; border:1px solid #dde2e8; background:#fff; color:#1a1f25; font-family:'Syne',sans-serif; font-size:12px; cursor:pointer; transition:all .2s; }
+  .pag-btn:hover,.pag-btn.active { background:#2ecc71; color:#fff; border-color:#2ecc71; font-weight:700; }
+  .pag-btn:disabled { opacity:.3; cursor:not-allowed; }
+
+  .empty { text-align:center; padding:80px 40px; color:#6b7a8d; }
+  .empty h3 { font-size:18px; margin-bottom:8px; color:#1a1f25; }
+  #dashboard { display:none; }
+</style>
+</head>
+<body>
+
+<div id="loadingBar"></div>
+
+<!-- ── LOGIN ── -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">ZOCOCITY <span>·</span> BUY BOX</div>
+    <div class="login-sub">Acceso restringido al equipo interno</div>
+    <input class="login-field" type="text"     id="loginUser" placeholder="Usuario" autocomplete="username">
+    <input class="login-field" type="password" id="loginPass" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">Entrar</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- ── DASHBOARD ── -->
+<div id="dashboard">
+  <header>
+    <div class="logo">ZOCOCITY <span>·</span> BUY BOX</div>
+    <div class="header-right">
+      <div class="last-update">Actualizado: <span id="lastUpdate">—</span></div>
+      <div class="header-stats">
+        <div class="hstat">
+          <div class="hstat-val green" id="hWin">—</div>
+          <div class="hstat-label">Con Buy Box</div>
+        </div>
+        <div class="hstat">
+          <div class="hstat-val red" id="hLose">—</div>
+          <div class="hstat-label">Sin Buy Box</div>
+        </div>
+        <div class="hstat">
+          <div class="hstat-val" id="hTotal" style="color:rgba(255,255,255,.7)">—</div>
+          <div class="hstat-label">Total</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <!-- SUMMARY -->
+  <div class="summary">
+    <div class="card green"><div class="card-val" id="cWin">—</div><div class="card-label">✓ Tienes la Buy Box</div></div>
+    <div class="card red">  <div class="card-val" id="cLose">—</div><div class="card-label">✗ Has perdido la Buy Box</div></div>
+    <div class="card yellow"><div class="card-val" id="cChanged">—</div><div class="card-label">↕ Cambio de precio</div></div>
+    <div class="card blue"> <div class="card-val" id="cNoBox">—</div><div class="card-label">— Sin Buy Box activa</div></div>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="filters">
+    <span class="filter-label">Filtrar:</span>
+    <button class="filter-btn active" id="btnAll"     onclick="setFilter('all')">Todos</button>
+    <button class="filter-btn"        id="btnWin"     onclick="setFilter('win')">✓ Con Buy Box</button>
+    <button class="filter-btn"        id="btnLose"    onclick="setFilter('lose')">✗ Sin Buy Box</button>
+    <button class="filter-btn"        id="btnChanged" onclick="setFilter('changed')">↕ Precio cambiado</button>
+    <select id="filterPais"  onchange="applyFilters()"><option value="">Todos los países</option></select>
+    <select id="filterMarca" onchange="applyFilters()"><option value="">Todas las marcas</option></select>
+    <input type="text" id="searchInput" placeholder="Buscar producto o ASIN..." oninput="applyFilters()">
+  </div>
+
+  <!-- TABLE -->
+  <div id="tableWrap" class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="no-sort" style="width:68px">Foto</th>
+          <th onclick="sortBy('pais')">País</th>
+          <th onclick="sortBy('titulo')">Producto</th>
+          <th onclick="sortBy('marca')">Marca</th>
+          <th onclick="sortBy('estado')">Buy Box</th>
+          <th onclick="sortBy('precio')">Precio BB</th>
+          <th onclick="sortBy('precioMin')">Mín. 30d</th>
+          <th onclick="sortBy('cambio')">Cambio</th>
+          <th onclick="sortBy('fba')">FBA</th>
+          <th class="no-sort">Amazon</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <!-- PAGINATION -->
+  <div class="pagination" id="pagination">
+    <span id="pagInfo"></span>
+    <div class="pag-btns" id="pagBtns"></div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──
+const SUPABASE_URL = 'https://llxajlcdftgnqjsixogy.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_fE84qlvhh-tfN2Hf2WaPtA_VXMr6uMZ';
+
+// ── USUARIOS (login local, sin base de datos) ──
+const USUARIOS = {
+  'admin':    'zococity2024',
+  'zococity': 'zococity2024',
+};
+
+const DOMINIOS = { ES:'amazon.es', DE:'amazon.de', FR:'amazon.fr', IT:'amazon.it' };
+const FLAGS    = { ES:'🇪🇸', DE:'🇩🇪', FR:'🇫🇷', IT:'🇮🇹' };
+const ROWS_PER_PAGE = 50;
+
+let allData = [], filteredData = [], currentPage = 1;
+let currentSort = { col:null, dir:1 }, activeFilter = 'all';
+
+// ── LOGIN ──
+function doLogin() {
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const err  = document.getElementById('loginError');
+
+  if (USUARIOS[user] && USUARIOS[user] === pass) {
+    sessionStorage.setItem('zc_auth', user);
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashboard').style.display   = 'block';
+    loadData();
+  } else {
+    err.textContent = 'Usuario o contraseña incorrectos';
+    setTimeout(() => err.textContent = '', 3000);
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem('zc_auth');
+  location.reload();
+}
+
+// Comprueba si ya hay sesión activa
+if (sessionStorage.getItem('zc_auth')) {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('dashboard').style.display   = 'block';
+  loadData();
+}
+
+// ── CARGAR DATOS DE SUPABASE ──
+async function loadData() {
+  setLoadingBar(20);
+  document.getElementById('tableBody').innerHTML =
+    '<tr><td colspan="10"><div class="spinner-wrap"><div class="spinner"></div><p>Cargando datos...</p></div></td></tr>';
+
+  try {
+    // Cargar todos los productos (paginado de 1000 en 1000)
+    let all = [], from = 0, batchSize = 1000;
+    while (true) {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/productos?select=*&order=updated_at.desc&limit=${batchSize}&offset=${from}`,
+        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+      );
+      const batch = await res.json();
+      if (!batch.length) break;
+      all = all.concat(batch);
+      if (batch.length < batchSize) break;
+      from += batchSize;
+    }
+
+    setLoadingBar(80);
+    allData = all.map(r => ({
+      asin:       r.asin,
+      titulo:     r.titulo || '',
+      marca:      r.marca  || '',
+      pais:       r.pais,
+      vendedor:   r.vendedor || '',
+      precio:     r.precio,
+      precioMin:  r.precio_min,
+      cambio1d:   r.cambio_1d || 0,
+      esFBA:      r.es_fba,
+      imgUrl:     r.img_url || '',
+      tenemos:    r.tenemos,
+      hayBuyBox:  r.hay_buybox,
+      hemosPerdido: r.hay_buybox && !r.tenemos && !!r.vendedor,
+      precioCambio: Math.abs(r.cambio_1d || 0) > 0.01,
+      updatedAt:  r.updated_at,
+    }));
+
+    // Fecha última actualización
+    if (allData.length) {
+      const latest = allData.reduce((a,b) => a.updatedAt > b.updatedAt ? a : b);
+      const d = new Date(latest.updatedAt);
+      document.getElementById('lastUpdate').textContent =
+        d.toLocaleDateString('es-ES') + ' ' + d.toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'});
+    }
+
+    setLoadingBar(100);
+    updateSelects();
+    applyFilters();
+    setTimeout(() => setLoadingBar(0), 500);
+
+  } catch(e) {
+    document.getElementById('tableBody').innerHTML =
+      `<tr><td colspan="10"><div class="empty"><h3>Error al cargar datos</h3><p>${e.message}</p></div></td></tr>`;
+    setLoadingBar(0);
+  }
+}
+
+function setLoadingBar(pct) {
+  const bar = document.getElementById('loadingBar');
+  bar.style.width = pct + '%';
+  if (pct === 0) setTimeout(() => bar.style.width = '0', 300);
+}
+
+// ── FILTROS ──
+function getFlag(p)   { return FLAGS[p]    || '🌍'; }
+function getDomain(p) { return DOMINIOS[p] || 'amazon.es'; }
+
+function updateSelects() {
+  const paises = [...new Set(allData.map(r => r.pais))].sort();
+  const marcas  = [...new Set(allData.map(r => r.marca).filter(Boolean))].sort();
+  const sP = document.getElementById('filterPais');
+  sP.innerHTML = '<option value="">Todos los países</option>';
+  paises.forEach(p => sP.innerHTML += `<option value="${p}">${getFlag(p)} ${p}</option>`);
+  const sM = document.getElementById('filterMarca');
+  sM.innerHTML = '<option value="">Todas las marcas</option>';
+  marcas.forEach(m => sM.innerHTML += `<option value="${m}">${m}</option>`);
+}
+
+function setFilter(f) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById({all:'btnAll',win:'btnWin',lose:'btnLose',changed:'btnChanged'}[f]).classList.add('active');
+  applyFilters();
+}
+
+function applyFilters() {
+  const pais   = document.getElementById('filterPais').value;
+  const marca  = document.getElementById('filterMarca').value;
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  filteredData = allData.filter(r => {
+    if (pais   && r.pais  !== pais)  return false;
+    if (marca  && r.marca !== marca) return false;
+    if (search && !r.titulo.toLowerCase().includes(search) && !r.asin.toLowerCase().includes(search)) return false;
+    if (activeFilter === 'win'     && !r.tenemos)       return false;
+    if (activeFilter === 'lose'    && !r.hemosPerdido)  return false;
+    if (activeFilter === 'changed' && !r.precioCambio)  return false;
+    return true;
+  });
+  if (currentSort.col) sortData();
+  currentPage = 1;
+  updateSummary();
+  renderTable();
+  renderPagination();
+}
+
+function updateSummary() {
+  const win  = allData.filter(r => r.tenemos).length;
+  const lose = allData.filter(r => r.hemosPerdido).length;
+  document.getElementById('cWin').textContent     = win;
+  document.getElementById('cLose').textContent    = lose;
+  document.getElementById('cChanged').textContent = allData.filter(r => r.precioCambio).length;
+  document.getElementById('cNoBox').textContent   = allData.filter(r => !r.hayBuyBox).length;
+  document.getElementById('hWin').textContent     = win;
+  document.getElementById('hLose').textContent    = lose;
+  document.getElementById('hTotal').textContent   = allData.length;
+}
+
+function sortBy(col) {
+  if (currentSort.col === col) currentSort.dir *= -1;
+  else { currentSort.col = col; currentSort.dir = 1; }
+  sortData(); renderTable(); renderPagination();
+}
+
+function sortData() {
+  const { col, dir } = currentSort;
+  filteredData.sort((a, b) => {
+    let va = a[col], vb = b[col];
+    if (col === 'precio')    { va = a.precio    ?? -1; vb = b.precio    ?? -1; }
+    if (col === 'precioMin') { va = a.precioMin ?? -1; vb = b.precioMin ?? -1; }
+    if (col === 'cambio')    { va = Math.abs(a.cambio1d); vb = Math.abs(b.cambio1d); }
+    if (col === 'estado')    { va = a.tenemos ? 0 : a.hemosPerdido ? 1 : 2; vb = b.tenemos ? 0 : b.hemosPerdido ? 1 : 2; }
+    if (typeof va === 'string') return va.localeCompare(vb) * dir;
+    return ((va ?? -1) - (vb ?? -1)) * dir;
+  });
+}
+
+// ── RENDER ──
+function fmtP(val, cls='price') {
+  return val != null ? `<span class="${cls}">${Number(val).toFixed(2)} €</span>` : `<span style="color:#aab4c0">—</span>`;
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  const start = (currentPage-1) * ROWS_PER_PAGE;
+  const page  = filteredData.slice(start, start+ROWS_PER_PAGE);
+
+  if (!page.length) {
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty"><h3>No hay resultados</h3><p>Prueba con otros filtros</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = page.map(r => {
+    const proxiedUrl = r.imgUrl ? `https://corsproxy.io/?${encodeURIComponent(r.imgUrl)}` : '';
+    const imgHtml = proxiedUrl
+      ? `<img class="product-img" src="${proxiedUrl}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="product-img-placeholder" style="display:none">📦</div>`
+      : `<div class="product-img-placeholder">📦</div>`;
+
+    let bbBadge;
+    if (r.tenemos) {
+      bbBadge = `<span class="badge win">✓ Zococity</span>`;
+    } else if (r.hemosPerdido) {
+      const nom = r.vendedor.length > 22 ? r.vendedor.slice(0,22)+'…' : r.vendedor;
+      bbBadge = `<span class="badge lose" title="${r.vendedor}">✗ ${nom}</span>`;
+    } else {
+      bbBadge = `<span class="badge nobox">— Sin BB</span>`;
+    }
+
+    const cambio = r.precioCambio
+      ? `<span class="price-change ${r.cambio1d>0?'up':'down'}">${r.cambio1d>0?'▲':'▼'} ${Math.abs(r.cambio1d).toFixed(1)}%</span>`
+      : `<span style="color:#aab4c0;font-family:'DM Mono',monospace;font-size:12px">—</span>`;
+
+    return `<tr>
+      <td style="padding:8px 8px 8px 14px"><div style="position:relative;width:52px;height:52px">${imgHtml}</div></td>
+      <td><span class="country-flag">${getFlag(r.pais)}</span></td>
+      <td>
+        <div class="product-name" title="${r.titulo}">${r.titulo||'—'}</div>
+        <div class="asin">${r.asin}</div>
+      </td>
+      <td style="font-size:12px;color:#6b7a8d">${r.marca||'—'}</td>
+      <td>${bbBadge}</td>
+      <td>${fmtP(r.precio)}</td>
+      <td>${fmtP(r.precioMin,'price-min')}</td>
+      <td>${cambio}</td>
+      <td><span class="${r.esFBA?'fba-yes':'fba-no'}">${r.esFBA?'FBA':'FBM'}</span></td>
+      <td><a class="btn-amazon" href="https://www.${getDomain(r.pais)}/dp/${r.asin}" target="_blank" rel="noopener">↗ Ver</a></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderPagination() {
+  const total = filteredData.length;
+  const pages = Math.ceil(total / ROWS_PER_PAGE);
+  document.getElementById('pagInfo').textContent = `${total} productos · Página ${currentPage} de ${Math.max(1,pages)}`;
+  let html = `<button class="pag-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>←</button>`;
+  const range = [];
+  for (let i=1; i<=pages; i++) {
+    if (i===1||i===pages||(i>=currentPage-2&&i<=currentPage+2)) range.push(i);
+    else if (range[range.length-1]!=='…') range.push('…');
+  }
+  range.forEach(p => {
+    if (p==='…') html += `<span style="color:#6b7a8d;padding:0 4px">…</span>`;
+    else html += `<button class="pag-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
+  });
+  html += `<button class="pag-btn" onclick="goPage(${currentPage+1})" ${currentPage>=pages?'disabled':''}>→</button>`;
+  document.getElementById('pagBtns').innerHTML = html;
+}
+
+function goPage(p) {
+  const pages = Math.ceil(filteredData.length / ROWS_PER_PAGE);
+  if (p<1||p>pages) return;
+  currentPage=p; renderTable(); renderPagination();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+</script>
+</body>
+</html>
