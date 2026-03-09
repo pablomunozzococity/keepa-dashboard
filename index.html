@@ -122,6 +122,38 @@
   .empty { text-align:center; padding:80px 40px; color:#6b7a8d; }
   .empty h3 { font-size:18px; margin-bottom:8px; color:#1a1f25; }
   #dashboard { display:none; }
+
+  /* ── MULTI-SELECT DROPDOWN ── */
+  .ms-wrap { position:relative; display:inline-block; }
+  .ms-trigger {
+    background:#fff; border:1px solid #dde2e8; color:#1a1f25;
+    padding:8px 32px 8px 14px; border-radius:8px; font-family:'Syne',sans-serif;
+    font-size:13px; cursor:pointer; outline:none; transition:border-color .2s;
+    min-width:160px; text-align:left; position:relative; user-select:none;
+  }
+  .ms-trigger:after { content:'▾'; position:absolute; right:10px; top:50%; transform:translateY(-50%); color:#6b7a8d; font-size:11px; }
+  .ms-trigger.open, .ms-trigger:hover { border-color:#2ecc71; }
+  .ms-dropdown {
+    display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:500;
+    background:#fff; border:1px solid #dde2e8; border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,.12); min-width:200px; max-height:280px;
+    overflow-y:auto; padding:6px 0;
+  }
+  .ms-dropdown.open { display:block; }
+  .ms-option {
+    display:flex; align-items:center; gap:10px; padding:8px 14px;
+    cursor:pointer; font-size:13px; transition:background .15s;
+  }
+  .ms-option:hover { background:#f4f6f8; }
+  .ms-option input[type=checkbox] { accent-color:#2ecc71; width:15px; height:15px; cursor:pointer; flex-shrink:0; }
+  .ms-option label { cursor:pointer; flex:1; }
+  .ms-search { padding:8px 12px; border-bottom:1px solid #eef1f5; }
+  .ms-search input { width:100%; border:1px solid #dde2e8; border-radius:6px; padding:6px 10px; font-family:'Syne',sans-serif; font-size:12px; outline:none; }
+  .ms-search input:focus { border-color:#2ecc71; }
+  .ms-actions { display:flex; gap:8px; padding:8px 12px; border-top:1px solid #eef1f5; }
+  .ms-btn { flex:1; padding:5px; border-radius:6px; font-family:'Syne',sans-serif; font-size:11px; font-weight:700; cursor:pointer; border:1px solid #dde2e8; background:#f4f6f8; color:#6b7a8d; transition:all .15s; }
+  .ms-btn:hover { background:#2ecc71; color:#fff; border-color:#2ecc71; }
+  .ms-count { display:inline-block; background:#2ecc71; color:#fff; border-radius:10px; font-size:10px; font-weight:700; padding:1px 6px; margin-left:4px; }
 </style>
 </head>
 <body>
@@ -179,8 +211,30 @@
     <button class="filter-btn"        id="btnWin"     onclick="setFilter('win')">✓ Con Buy Box</button>
     <button class="filter-btn"        id="btnLose"    onclick="setFilter('lose')">✗ Sin Buy Box</button>
     <button class="filter-btn"        id="btnChanged" onclick="setFilter('changed')">↕ Precio cambiado</button>
-    <select id="filterPais"  onchange="applyFilters()"><option value="">Todos los países</option></select>
-    <select id="filterMarca" onchange="applyFilters()"><option value="">Todas las marcas</option></select>
+    <div class="ms-wrap" id="wrapPais">
+      <button class="ms-trigger" id="triggerPais" onclick="toggleDropdown('pais')">Todos los países</button>
+      <div class="ms-dropdown" id="dropPais">
+        <div class="ms-search"><input type="text" placeholder="Buscar país..." oninput="filterOptions('pais',this.value)"></div>
+        <div id="optsPais"></div>
+        <div class="ms-actions">
+          <button class="ms-btn" onclick="selectAll('pais')">Todos</button>
+          <button class="ms-btn" onclick="clearAll('pais')">Ninguno</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="ms-wrap" id="wrapMarca">
+      <button class="ms-trigger" id="triggerMarca" onclick="toggleDropdown('marca')">Todas las marcas</button>
+      <div class="ms-dropdown" id="dropMarca">
+        <div class="ms-search"><input type="text" placeholder="Buscar marca..." oninput="filterOptions('marca',this.value)"></div>
+        <div id="optsMarca"></div>
+        <div class="ms-actions">
+          <button class="ms-btn" onclick="selectAll('marca')">Todas</button>
+          <button class="ms-btn" onclick="clearAll('marca')">Ninguna</button>
+        </div>
+      </div>
+    </div>
+
     <input type="text" id="searchInput" placeholder="Buscar producto o ASIN..." oninput="applyFilters()">
   </div>
 
@@ -308,7 +362,7 @@ async function loadData() {
       const latest = allData.reduce((a,b) => a.updatedAt > b.updatedAt ? a : b);
       const d = new Date(latest.updatedAt);
       document.getElementById('lastUpdate').textContent =
-        d.toLocaleDateString('es-ES') + ' ' + d.toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'});
+        d.toLocaleDateString('es-ES', {timeZone:'Europe/Madrid'}) + ' ' + d.toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit',timeZone:'Europe/Madrid'});
     }
 
     setLoadingBar(100);
@@ -333,15 +387,102 @@ function setLoadingBar(pct) {
 function getFlag(p)   { return FLAGS[p]    || '🌍'; }
 function getDomain(p) { return DOMINIOS[p] || 'amazon.es'; }
 
+// ── MULTI-SELECT STATE ──
+const msState = {
+  pais:  { selected: new Set(), all: [] },
+  marca: { selected: new Set(), all: [] },
+};
+
+function buildOptions(type, items) {
+  const container = document.getElementById('opts' + (type==='pais'?'Pais':'Marca'));
+  msState[type].all = items;
+  renderOptions(type, items);
+  // Select all by default
+  msState[type].selected = new Set(items);
+  updateTriggerLabel(type);
+}
+
+function renderOptions(type, items) {
+  const container = document.getElementById('opts' + (type==='pais'?'Pais':'Marca'));
+  container.innerHTML = items.map(v => {
+    const checked = msState[type].selected.has(v) ? 'checked' : '';
+    const label   = type === 'pais' ? getFlag(v) + ' ' + v : v;
+    return `<div class="ms-option">
+      <input type="checkbox" id="ms_${type}_${v}" value="${v}" ${checked} onchange="toggleOption('${type}','${v}',this.checked)">
+      <label for="ms_${type}_${v}">${label}</label>
+    </div>`;
+  }).join('');
+}
+
+function filterOptions(type, query) {
+  const filtered = msState[type].all.filter(v => v.toLowerCase().includes(query.toLowerCase()));
+  renderOptions(type, filtered);
+}
+
+function toggleOption(type, val, checked) {
+  if (checked) msState[type].selected.add(val);
+  else msState[type].selected.delete(val);
+  updateTriggerLabel(type);
+  applyFilters();
+}
+
+function selectAll(type) {
+  msState[type].selected = new Set(msState[type].all);
+  renderOptions(type, msState[type].all);
+  updateTriggerLabel(type);
+  applyFilters();
+}
+
+function clearAll(type) {
+  msState[type].selected.clear();
+  renderOptions(type, msState[type].all);
+  updateTriggerLabel(type);
+  applyFilters();
+}
+
+function updateTriggerLabel(type) {
+  const trigger = document.getElementById('trigger' + (type==='pais'?'Pais':'Marca'));
+  const sel = msState[type].selected;
+  const all = msState[type].all;
+  if (sel.size === 0) {
+    trigger.innerHTML = type === 'pais' ? 'Ningún país' : 'Ninguna marca';
+  } else if (sel.size === all.length) {
+    trigger.innerHTML = type === 'pais' ? 'Todos los países' : 'Todas las marcas';
+  } else if (sel.size <= 2) {
+    const labels = [...sel].map(v => type==='pais' ? getFlag(v)+' '+v : v).join(', ');
+    trigger.innerHTML = labels;
+  } else {
+    const base = type === 'pais' ? 'países' : 'marcas';
+    trigger.innerHTML = `${sel.size} ${base} <span class="ms-count">${sel.size}</span>`;
+  }
+}
+
+function toggleDropdown(type) {
+  const drop = document.getElementById('drop' + (type==='pais'?'Pais':'Marca'));
+  const trigger = document.getElementById('trigger' + (type==='pais'?'Pais':'Marca'));
+  const isOpen = drop.classList.contains('open');
+  // Close all first
+  document.querySelectorAll('.ms-dropdown').forEach(d => d.classList.remove('open'));
+  document.querySelectorAll('.ms-trigger').forEach(t => t.classList.remove('open'));
+  if (!isOpen) {
+    drop.classList.add('open');
+    trigger.classList.add('open');
+  }
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('.ms-wrap')) {
+    document.querySelectorAll('.ms-dropdown').forEach(d => d.classList.remove('open'));
+    document.querySelectorAll('.ms-trigger').forEach(t => t.classList.remove('open'));
+  }
+});
+
 function updateSelects() {
   const paises = [...new Set(allData.map(r => r.pais))].sort();
   const marcas  = [...new Set(allData.map(r => r.marca).filter(Boolean))].sort();
-  const sP = document.getElementById('filterPais');
-  sP.innerHTML = '<option value="">Todos los países</option>';
-  paises.forEach(p => sP.innerHTML += `<option value="${p}">${getFlag(p)} ${p}</option>`);
-  const sM = document.getElementById('filterMarca');
-  sM.innerHTML = '<option value="">Todas las marcas</option>';
-  marcas.forEach(m => sM.innerHTML += `<option value="${m}">${m}</option>`);
+  buildOptions('pais', paises);
+  buildOptions('marca', marcas);
 }
 
 function setFilter(f) {
@@ -352,16 +493,16 @@ function setFilter(f) {
 }
 
 function applyFilters() {
-  const pais   = document.getElementById('filterPais').value;
-  const marca  = document.getElementById('filterMarca').value;
-  const search = document.getElementById('searchInput').value.toLowerCase();
+  const search    = document.getElementById('searchInput').value.toLowerCase();
+  const selPaises = msState.pais.selected;
+  const selMarcas = msState.marca.selected;
   filteredData = allData.filter(r => {
-    if (pais   && r.pais  !== pais)  return false;
-    if (marca  && r.marca !== marca) return false;
+    if (selPaises.size > 0 && selPaises.size < msState.pais.all.length  && !selPaises.has(r.pais))  return false;
+    if (selMarcas.size > 0 && selMarcas.size < msState.marca.all.length && !selMarcas.has(r.marca)) return false;
     if (search && !r.titulo.toLowerCase().includes(search) && !r.asin.toLowerCase().includes(search)) return false;
-    if (activeFilter === 'win'     && !r.tenemos)       return false;
-    if (activeFilter === 'lose'    && !r.hemosPerdido)  return false;
-    if (activeFilter === 'changed' && !r.precioCambio)  return false;
+    if (activeFilter === 'win'     && !r.tenemos)      return false;
+    if (activeFilter === 'lose'    && !r.hemosPerdido) return false;
+    if (activeFilter === 'changed' && !r.precioCambio) return false;
     return true;
   });
   if (currentSort.col) sortData();
