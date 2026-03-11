@@ -211,6 +211,8 @@
     <button class="filter-btn"        id="btnWin"     onclick="setFilter('win')">✓ Con Buy Box</button>
     <button class="filter-btn"        id="btnLose"    onclick="setFilter('lose')">✗ Sin Buy Box</button>
     <button class="filter-btn"        id="btnChanged" onclick="setFilter('changed')">↕ Precio cambiado</button>
+    <button class="filter-btn"        id="btnFBA"     onclick="setFilter('fba')">FBA</button>
+    <button class="filter-btn"        id="btnFBM"     onclick="setFilter('fbm')">FBM</button>
     <div class="ms-wrap" id="wrapPais">
       <button class="ms-trigger" id="triggerPais" onclick="toggleDropdown('pais')">Todos los países</button>
       <div class="ms-dropdown" id="dropPais">
@@ -488,7 +490,7 @@ function updateSelects() {
 function setFilter(f) {
   activeFilter = f;
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById({all:'btnAll',win:'btnWin',lose:'btnLose',changed:'btnChanged'}[f]).classList.add('active');
+  document.getElementById({all:'btnAll',win:'btnWin',lose:'btnLose',changed:'btnChanged',fba:'btnFBA',fbm:'btnFBM'}[f]).classList.add('active');
   applyFilters();
 }
 
@@ -503,6 +505,8 @@ function applyFilters() {
     if (activeFilter === 'win'     && !r.tenemos)      return false;
     if (activeFilter === 'lose'    && !r.hemosPerdido) return false;
     if (activeFilter === 'changed' && !r.precioCambio) return false;
+    if (activeFilter === 'fba'     && !r.esFBA)        return false;
+    if (activeFilter === 'fbm'     && r.esFBA)         return false;
     return true;
   });
   if (currentSort.col) sortData();
