@@ -286,7 +286,8 @@ const FLAGS    = { ES:'🇪🇸', DE:'🇩🇪', FR:'🇫🇷', IT:'🇮🇹' };
 const ROWS_PER_PAGE = 50;
 
 let allData = [], filteredData = [], currentPage = 1;
-let currentSort = { col:null, dir:1 }, activeFilter = 'all';
+let currentSort = { col:null, dir:1 };
+const activeFilters = new Set(); // empty = show all
 
 // ── LOGIN ──
 function doLogin() {
@@ -488,9 +489,25 @@ function updateSelects() {
 }
 
 function setFilter(f) {
-  activeFilter = f;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById({all:'btnAll',win:'btnWin',lose:'btnLose',changed:'btnChanged',fba:'btnFBA',fbm:'btnFBM'}[f]).classList.add('active');
+  if (f === 'all') {
+    activeFilters.clear();
+  } else {
+    // FBA y FBM son mutuamente excluyentes entre sí
+    if (f === 'fba' && activeFilters.has('fbm')) activeFilters.delete('fbm');
+    if (f === 'fbm' && activeFilters.has('fba')) activeFilters.delete('fba');
+    // win y lose son mutuamente excluyentes entre sí
+    if (f === 'win'  && activeFilters.has('lose')) activeFilters.delete('lose');
+    if (f === 'lose' && activeFilters.has('win'))  activeFilters.delete('win');
+
+    if (activeFilters.has(f)) activeFilters.delete(f);
+    else activeFilters.add(f);
+  }
+  // Update button styles
+  document.getElementById('btnAll').classList.toggle('active', activeFilters.size === 0);
+  ['win','lose','changed','fba','fbm'].forEach(k => {
+    const btn = document.getElementById({win:'btnWin',lose:'btnLose',changed:'btnChanged',fba:'btnFBA',fbm:'btnFBM'}[k]);
+    if (btn) btn.classList.toggle('active', activeFilters.has(k));
+  });
   applyFilters();
 }
 
@@ -502,11 +519,15 @@ function applyFilters() {
     if (selPaises.size > 0 && selPaises.size < msState.pais.all.length  && !selPaises.has(r.pais))  return false;
     if (selMarcas.size > 0 && selMarcas.size < msState.marca.all.length && !selMarcas.has(r.marca)) return false;
     if (search && !r.titulo.toLowerCase().includes(search) && !r.asin.toLowerCase().includes(search)) return false;
-    if (activeFilter === 'win'     && !r.tenemos)      return false;
-    if (activeFilter === 'lose'    && !r.hemosPerdido) return false;
-    if (activeFilter === 'changed' && !r.precioCambio) return false;
-    if (activeFilter === 'fba'     && !r.esFBA)        return false;
-    if (activeFilter === 'fbm'     && r.esFBA)         return false;
+    if (activeFilters.size > 0) {
+      const ok =
+        (!activeFilters.has('win')     || r.tenemos) &&
+        (!activeFilters.has('lose')    || r.hemosPerdido) &&
+        (!activeFilters.has('changed') || r.precioCambio) &&
+        (!activeFilters.has('fba')     || r.esFBA) &&
+        (!activeFilters.has('fbm')     || !r.esFBA);
+      if (!ok) return false;
+    }
     return true;
   });
   if (currentSort.col) sortData();
@@ -579,7 +600,7 @@ function renderTable() {
   }
 
   tbody.innerHTML = page.map(r => {
-    const proxiedUrl = r.imgUrl ? `https://corsproxy.io/?${encodeURIComponent(r.imgUrl)}` : '';
+    const proxiedUrl = r.imgUrl ? `https://images.weserv.nl/?url=${encodeURIComponent(r.imgUrl)}&w=100&h=100&fit=contain&bg=white` : '';
     const imgHtml = proxiedUrl
       ? `<img class="product-img" src="${proxiedUrl}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="product-img-placeholder" style="display:none">📦</div>`
       : `<div class="product-img-placeholder">📦</div>`;
