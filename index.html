@@ -643,7 +643,7 @@ function renderTable() {
     const pills = g.paises.map(r => bbPill(r)).join('');
 
     // Main row
-    html += '<tr class="main-row" onclick="toggleRow('+idx+',this)" style="cursor:pointer">';
+    html += '<tr class="main-row" onclick="toggleRow('+idx+')" style="cursor:pointer">';
     html += '<td style="padding-left:14px"><span class="chevron" id="chev'+idx+'">▶</span></td>';
     html += '<td style="padding:8px 8px 8px 4px"><div style="width:52px;height:52px;position:relative">'+imgHtml+'</div></td>';
     html += '<td><div class="product-name" title="'+g.titulo+'">'+( g.titulo||'—')+'</div><div class="asin">'+g.asin+'</div></td>';
@@ -691,7 +691,7 @@ function renderTable() {
   tbody.innerHTML = html;
 }
 
-function toggleRow(idx, mainTr) {
+function toggleRow(idx) {
   const chev = document.getElementById('chev'+idx);
   const isOpen = chev.textContent === '▼';
   const table = document.getElementById('tableBody');
@@ -701,10 +701,6 @@ function toggleRow(idx, mainTr) {
     chev.textContent = '▶';
   } else {
     allRows.forEach(r => r.style.display = 'table-row');
-    chev.textContent = '▼';
-  }
-} else {
-    sub.style.display = 'table-row-group';
     chev.textContent = '▼';
   }
 }
