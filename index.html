@@ -417,7 +417,7 @@ function buildOptions(type, items) {
 function renderOptions(type, items) {
   const container = document.getElementById('opts' + (type==='pais'?'Pais':'Marca'));
   container.innerHTML = items.map(v => {
-    const checked = msState[type].selected.size === 0 || msState[type].selected.has(v) ? 'checked' : '';
+    const checked = msState[type].selected.has(v) ? 'checked' : '';
     const label   = type === 'pais' ? getFlag(v) + ' ' + v : v;
     return `<div class="ms-option">
       <input type="checkbox" id="ms_${type}_${v}" value="${v}" ${checked} onchange="toggleOption('${type}','${v}',this.checked)">
@@ -432,14 +432,17 @@ function filterOptions(type, query) {
 }
 
 function toggleOption(type, val, checked) {
-  if (checked) msState[type].selected.add(val);
-  else msState[type].selected.delete(val);
+  if (checked) {
+    msState[type].selected.add(val);
+  } else {
+    msState[type].selected.delete(val);
+  }
   updateTriggerLabel(type);
   applyFilters();
 }
 
 function selectAll(type) {
-  msState[type].selected = new Set(); // empty = all
+  msState[type].selected.clear();
   renderOptions(type, msState[type].all);
   updateTriggerLabel(type);
   applyFilters();
@@ -457,8 +460,6 @@ function updateTriggerLabel(type) {
   const sel = msState[type].selected;
   const all = msState[type].all;
   if (sel.size === 0) {
-    trigger.innerHTML = type === 'pais' ? 'Todos los países' : 'Todas las marcas';
-  } else if (sel.size === all.length) {
     trigger.innerHTML = type === 'pais' ? 'Todos los países' : 'Todas las marcas';
   } else if (sel.size <= 2) {
     const labels = [...sel].map(v => type==='pais' ? getFlag(v)+' '+v : v).join(', ');
@@ -653,7 +654,7 @@ function renderTable() {
         ? `<span class="price-change ${r.cambio1d>0?'up':'down'}">${r.cambio1d>0?'▲':'▼'} ${Math.abs(r.cambio1d).toFixed(1)}%</span>`
         : `<span style="color:#aab4c0;font-family:'DM Mono',monospace;font-size:12px">—</span>`;
 
-      return `<tr class="sub-row">
+      return `<tr class="sub-row" style="display:none">
         <td></td>
         <td><span style="font-size:22px">${getFlag(r.pais)}</span></td>
         <td style="font-size:12px;color:#6b7a8d">${{ES:'España',DE:'Alemania',FR:'Francia',IT:'Italia'}[r.pais]||r.pais}</td>
@@ -678,8 +679,8 @@ function renderTable() {
         <td>${fmtOferta(g.oferta)}</td>
       </tr>
     </tbody>
-    <tbody class="sub-rows" id="grp${idx}">
-      <tr class="sub-row" style="background:#eef1f5">
+    <tbody class="sub-rows" id="grp${idx}" data-open="0">
+      <tr class="sub-row" style="background:#eef1f5;display:none">
         <td></td>
         <td></td>
         <td style="font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.8px">País</td>
@@ -697,9 +698,18 @@ function toggleRow(id) {
   const sub  = document.getElementById(id);
   const idx  = id.replace('grp','');
   const chev = document.getElementById('chev'+idx);
-  sub.classList.toggle('open');
-  chev.classList.toggle('open');
-  chev.textContent = chev.classList.contains('open') ? '▼' : '▶';
+  const isOpen = sub.getAttribute('data-open') === '1';
+  if (isOpen) {
+    sub.setAttribute('data-open','0');
+    Array.from(sub.rows).forEach(r => r.style.display = 'none');
+    chev.textContent = '▶';
+    chev.classList.remove('open');
+  } else {
+    sub.setAttribute('data-open','1');
+    Array.from(sub.rows).forEach(r => r.style.display = '');
+    chev.textContent = '▼';
+    chev.classList.add('open');
+  }
 }
 
 function renderPagination() {
