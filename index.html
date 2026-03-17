@@ -40,13 +40,13 @@
   .header-right { display:flex; align-items:center; gap:32px; }
   .header-stats { display:flex; gap:32px; }
   .hstat { text-align:right; }
-  .hstat-val { font-family:'DM Mono',monospace; font-size:22px; font-weight:500; color:#fff; }
+  .hstat-val { font-family:monospace; font-size:22px; font-weight:500; color:#fff; }
   .hstat-val.green { color:#a8f0cb; }
   .hstat-val.red   { color:#f9a8a0; }
   .hstat-label { font-size:11px; color:rgba(255,255,255,.7); text-transform:uppercase; letter-spacing:1px; }
   .btn-logout { background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.3); color:#fff; padding:8px 16px; border-radius:8px; font-family:'Syne',sans-serif; font-size:12px; cursor:pointer; transition:all .2s; }
   .btn-logout:hover { background:rgba(255,255,255,.25); }
-  .last-update { font-size:11px; color:rgba(255,255,255,.6); font-family:'DM Mono',monospace; }
+  .last-update { font-size:11px; color:rgba(255,255,255,.6); font-family:monospace; }
 
   /* ── LOADING STATE ── */
   #loadingBar { background:#1a7f4b; height:3px; width:0; transition:width .3s; position:fixed; top:0; left:0; z-index:200; }
@@ -70,7 +70,7 @@
   .card.red::before   { background:#e74c3c; }
   .card.yellow::before{ background:#f39c12; }
   .card.blue::before  { background:#3498db; }
-  .card-val { font-family:'DM Mono',monospace; font-size:36px; font-weight:500; line-height:1; margin-bottom:6px; }
+  .card-val { font-family:monospace; font-size:36px; font-weight:500; line-height:1; margin-bottom:6px; }
   .card.green .card-val  { color:#2ecc71; }
   .card.red .card-val    { color:#e74c3c; }
   .card.yellow .card-val { color:#f39c12; }
@@ -91,7 +91,7 @@
   .product-img { width:52px; height:52px; border-radius:8px; object-fit:contain; background:#f8f9fa; border:1px solid #dde2e8; display:block; }
   .product-img-placeholder { width:52px; height:52px; border-radius:8px; background:#eef1f5; border:1px solid #dde2e8; display:flex; align-items:center; justify-content:center; font-size:20px; }
   .product-name { max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .asin { font-family:'DM Mono',monospace; font-size:11px; color:#8a9bb0; margin-top:2px; }
+  .asin { font-family:monospace; font-size:11px; color:#8a9bb0; margin-top:2px; }
 
   .btn-amazon { display:inline-flex; align-items:center; gap:4px; background:rgba(46,204,113,.1); color:#2ecc71; border:1px solid rgba(46,204,113,.25); border-radius:6px; padding:5px 10px; font-size:11px; font-weight:700; font-family:'Syne',sans-serif; text-decoration:none; transition:all .2s; }
   .btn-amazon:hover { background:rgba(46,204,113,.2); }
@@ -101,15 +101,15 @@
   .badge.lose { background:rgba(231,76,60,.12);  color:#e74c3c; border:1px solid rgba(231,76,60,.25); }
   .badge.nobox{ background:#f0f2f5; color:#6b7a8d; border:1px solid #dde2e8; }
 
-  .price      { font-family:'DM Mono',monospace; font-size:14px; color:#1a1f25; }
-  .price-min  { font-family:'DM Mono',monospace; font-size:13px; color:#3498db; }
-  .price-change.up   { font-family:'DM Mono',monospace; font-size:12px; color:#e74c3c; }
-  .price-change.down { font-family:'DM Mono',monospace; font-size:12px; color:#2ecc71; }
+  .price      { font-family:monospace; font-size:14px; color:#1a1f25; }
+  .price-min  { font-family:monospace; font-size:13px; color:#3498db; }
+  .price-change.up   { font-family:monospace; font-size:12px; color:#e74c3c; }
+  .price-change.down { font-family:monospace; font-size:12px; color:#2ecc71; }
   .country-flag { font-size:22px; }
   .fba-yes { color:#2ecc71; font-size:11px; font-weight:700; }
   .fba-no  { color:#aab4c0; font-size:11px; }
   .rating-stars { color:#f39c12; font-size:13px; }
-  .rating-val   { font-family:'DM Mono',monospace; font-size:12px; color:#6b7a8d; margin-left:4px; }
+  .rating-val   { font-family:monospace; font-size:12px; color:#6b7a8d; margin-left:4px; }
   .badge-oferta { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:700; background:rgba(243,156,18,0.12); color:#d68910; border:1px solid rgba(243,156,18,0.3); white-space:nowrap; max-width:130px; overflow:hidden; text-overflow:ellipsis; }
 
   /* ── PAGINATION ── */
@@ -304,7 +304,6 @@ function doLogin() {
   const user = document.getElementById('loginUser').value.trim();
   const pass = document.getElementById('loginPass').value;
   const err  = document.getElementById('loginError');
-
   if (USUARIOS[user] && USUARIOS[user] === pass) {
     sessionStorage.setItem('zc_auth', user);
     document.getElementById('loginScreen').style.display = 'none';
@@ -637,7 +636,7 @@ function renderTable() {
   page.forEach((g, idx) => {
     const proxiedUrl = g.imgUrl ? 'https://images.weserv.nl/?url='+encodeURIComponent(g.imgUrl)+'&w=100&h=100&fit=contain&bg=white' : '';
     const imgHtml = proxiedUrl
-      ? '<img class="product-img" src="'+proxiedUrl+'" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="product-img-placeholder" style="display:none">📦</div>'
+      ? '<img class="product-img" src="'+proxiedUrl+'" alt="" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div class="product-img-placeholder" style="display:none">📦</div>'
       : '<div class="product-img-placeholder">📦</div>';
 
     const pills = g.paises.map(r => bbPill(r)).join('');
@@ -672,7 +671,7 @@ function renderTable() {
 
       const cambio = r.precioCambio
         ? '<span class="price-change '+(r.cambio1d>0?'up':'down')+'">'+(r.cambio1d>0?'▲':'▼')+' '+Math.abs(r.cambio1d).toFixed(1)+'%</span>'
-        : '<span style="color:#aab4c0;font-family:'DM Mono',monospace;font-size:12px">—</span>';
+        : '<span style="color:#aab4c0;font-family:monospace;font-size:12px">—</span>';
 
       const nombres = {ES:'España',DE:'Alemania',FR:'Francia',IT:'Italia'};
 
