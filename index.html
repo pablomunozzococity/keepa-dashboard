@@ -650,7 +650,7 @@ function renderTable() {
         ? `<span class="price-change ${r.cambio1d>0?'up':'down'}">${r.cambio1d>0?'▲':'▼'} ${Math.abs(r.cambio1d).toFixed(1)}%</span>`
         : `<span style="color:#aab4c0;font-family:'DM Mono',monospace;font-size:12px">—</span>`;
 
-      return `<tr class="sub-row" style="display:none">
+      return `<tr class="sub-row">
         <td></td>
         <td><span style="font-size:22px">${getFlag(r.pais)}</span></td>
         <td style="font-size:12px;color:#6b7a8d">${{ES:'España',DE:'Alemania',FR:'Francia',IT:'Italia'}[r.pais]||r.pais}</td>
@@ -661,8 +661,8 @@ function renderTable() {
       </tr>`;
     }).join('');
 
-    return `<tbody class="main-row" onclick="toggleRow('grp${idx}')">
-      <tr>
+    return `<tbody class="main-row">
+      <tr onclick="toggleRow('grp${idx}')" style="cursor:pointer">
         <td style="padding-left:14px"><span class="chevron" id="chev${idx}">▶</span></td>
         <td style="padding:8px 8px 8px 4px"><div style="width:52px;height:52px;position:relative">${imgHtml}</div></td>
         <td>
@@ -675,8 +675,8 @@ function renderTable() {
         <td>${fmtOferta(g.oferta)}</td>
       </tr>
     </tbody>
-    <tbody class="sub-rows" id="grp${idx}" data-open="0">
-      <tr class="sub-row" style="background:#eef1f5;display:none">
+    <tbody class="sub-rows" id="grp${idx}" style="display:none">
+      <tr class="sub-row" style="background:#eef1f5">
         <td></td>
         <td></td>
         <td style="font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.8px">País</td>
@@ -694,14 +694,11 @@ function toggleRow(id) {
   const sub  = document.getElementById(id);
   const idx  = id.replace('grp','');
   const chev = document.getElementById('chev'+idx);
-  const isOpen = sub.getAttribute('data-open') === '1';
-  if (isOpen) {
-    sub.setAttribute('data-open', '0');
-    Array.from(sub.rows).forEach(r => r.style.display = 'none');
+  if (sub.style.display === 'table-row-group') {
+    sub.style.display = 'none';
     chev.textContent = '▶';
   } else {
-    sub.setAttribute('data-open', '1');
-    Array.from(sub.rows).forEach(r => r.style.display = 'table-row');
+    sub.style.display = 'table-row-group';
     chev.textContent = '▼';
   }
 }
