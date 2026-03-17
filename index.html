@@ -358,7 +358,7 @@ async function loadData() {
       precio:     r.precio,
       precioMin:  r.precio_min,
       cambio1d:   r.cambio_1d || 0,
-      esFBA:      r.es_fba,
+      esFBA:      r.es_fba === null ? null : Boolean(r.es_fba),
       imgUrl:     r.img_url || '',
       tenemos:    r.tenemos,
       hayBuyBox:  r.hay_buybox,
@@ -611,6 +611,14 @@ function groupByAsin(rows) {
     if (!map.has(r.asin)) map.set(r.asin, { asin: r.asin, titulo: r.titulo, marca: r.marca, rating: r.rating, oferta: r.oferta, imgUrl: r.imgUrl, paises: [] });
     map.get(r.asin).paises.push(r);
   });
+  // Propagar FBA: si el ASIN es FBA en algún país, asumirlo donde no hay dato (null)
+  // Si explícitamente es FBM (false) en un país, respetarlo
+  map.forEach(g => {
+    const esFBAEnAlgunPais = g.paises.some(p => p.esFBA === true);
+    if (esFBAEnAlgunPais) {
+      g.paises.forEach(p => { if (p.esFBA === null || p.esFBA === undefined) p.esFBA = true; });
+    }
+  });
   return [...map.values()];
 }
 
@@ -682,7 +690,8 @@ function renderTable() {
       html += '<td>'+bbBadge+'</td>';
       html += '<td>'+fmtP(r.precio)+(r.precioMin!=null?' <span style="font-size:11px;color:#3498db;margin-left:4px">mín '+Number(r.precioMin).toFixed(2)+' €</span>':'')+'</td>';
       html += '<td>'+cambio+'</td>';
-      html += '<td><span class="'+(r.esFBA?'fba-yes':'fba-no')+'">'+(r.esFBA?'FBA':'FBM')+'</span> <a class="btn-amazon" href="https://www.'+getDomain(r.pais)+'/dp/'+r.asin+'" target="_blank" rel="noopener" style="margin-left:6px">↗ Ver</a></td>';
+      const fbaLabel = r.esFBA ? '<span class="fba-yes">FBA</span>' : '<span class="fba-no">FBM</span>';
+      html += '<td>'+fbaLabel+' <a class="btn-amazon" href="https://www.'+getDomain(r.pais)+'/dp/'+r.asin+'" target="_blank" rel="noopener" style="margin-left:6px">↗ Ver</a></td>';
       html += '</tr>';
     });
   });
