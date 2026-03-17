@@ -123,6 +123,22 @@
   .empty h3 { font-size:18px; margin-bottom:8px; color:#1a1f25; }
   #dashboard { display:none; }
 
+  /* ── GROUPED ROWS ── */
+  .main-row { cursor:pointer; }
+  .main-row:hover td { background:rgba(26,127,75,.06) !important; }
+  .chevron { display:inline-block; width:16px; height:16px; line-height:16px; text-align:center; font-size:10px; color:#6b7a8d; transition:transform .2s; margin-right:4px; }
+  .chevron.open { transform:rotate(90deg); }
+  .sub-row td { background:#f8fafc; border-bottom:1px solid #eef1f5; padding:8px 14px 8px 24px; }
+  .sub-row:last-child td { border-bottom:2px solid #dde2e8; }
+  .sub-row:hover td { background:#f0f4f8 !important; }
+  .sub-rows { display:none; }
+  .sub-rows.open { display:table-row-group; }
+  .country-badges { display:flex; gap:4px; flex-wrap:wrap; }
+  .country-pill { display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:20px; font-size:11px; font-weight:700; border:1px solid; }
+  .country-pill.win  { background:rgba(46,204,113,.12); color:#2ecc71; border-color:rgba(46,204,113,.25); }
+  .country-pill.lose { background:rgba(231,76,60,.12);  color:#e74c3c; border-color:rgba(231,76,60,.25); }
+  .country-pill.nobox{ background:#f0f2f5; color:#8a9bb0; border-color:#dde2e8; }
+
   /* ── MULTI-SELECT DROPDOWN ── */
   .ms-wrap { position:relative; display:inline-block; }
   .ms-trigger {
@@ -245,18 +261,13 @@
     <table>
       <thead>
         <tr>
+          <th class="no-sort" style="width:20px"></th>
           <th class="no-sort" style="width:68px">Foto</th>
-          <th onclick="sortBy('pais')">País</th>
           <th onclick="sortBy('titulo')">Producto</th>
           <th onclick="sortBy('marca')">Marca</th>
-          <th onclick="sortBy('estado')">Buy Box</th>
-          <th onclick="sortBy('precio')">Precio BB</th>
-          <th onclick="sortBy('precioMin')">Mín. 30d</th>
-          <th onclick="sortBy('cambio')">Cambio</th>
-          <th onclick="sortBy('fba')">FBA</th>
+          <th class="no-sort">Buy Box por país</th>
           <th onclick="sortBy('rating')">Rating</th>
           <th onclick="sortBy('oferta')">Oferta</th>
-          <th class="no-sort">Amazon</th>
         </tr>
       </thead>
       <tbody id="tableBody"></tbody>
@@ -492,17 +503,19 @@ function setFilter(f) {
   if (f === 'all') {
     activeFilters.clear();
   } else {
-    // FBA y FBM son mutuamente excluyentes entre sí
-    if (f === 'fba' && activeFilters.has('fbm')) activeFilters.delete('fbm');
-    if (f === 'fbm' && activeFilters.has('fba')) activeFilters.delete('fba');
-    // win y lose son mutuamente excluyentes entre sí
-    if (f === 'win'  && activeFilters.has('lose')) activeFilters.delete('lose');
-    if (f === 'lose' && activeFilters.has('win'))  activeFilters.delete('win');
-
-    if (activeFilters.has(f)) activeFilters.delete(f);
-    else activeFilters.add(f);
+    // Si ya está activo, lo desactiva (toggle off)
+    if (activeFilters.has(f)) {
+      activeFilters.delete(f);
+    } else {
+      // Mutuamente excluyentes
+      if (f === 'fba')  activeFilters.delete('fbm');
+      if (f === 'fbm')  activeFilters.delete('fba');
+      if (f === 'win')  activeFilters.delete('lose');
+      if (f === 'lose') activeFilters.delete('win');
+      activeFilters.add(f);
+    }
   }
-  // Update button styles
+  // Actualizar botones
   document.getElementById('btnAll').classList.toggle('active', activeFilters.size === 0);
   ['win','lose','changed','fba','fbm'].forEach(k => {
     const btn = document.getElementById({win:'btnWin',lose:'btnLose',changed:'btnChanged',fba:'btnFBA',fbm:'btnFBM'}[k]);
@@ -520,13 +533,21 @@ function applyFilters() {
     if (selMarcas.size > 0 && selMarcas.size < msState.marca.all.length && !selMarcas.has(r.marca)) return false;
     if (search && !r.titulo.toLowerCase().includes(search) && !r.asin.toLowerCase().includes(search)) return false;
     if (activeFilters.size > 0) {
-      const ok =
-        (!activeFilters.has('win')     || r.tenemos) &&
-        (!activeFilters.has('lose')    || r.hemosPerdido) &&
-        (!activeFilters.has('changed') || r.precioCambio) &&
-        (!activeFilters.has('fba')     || r.esFBA) &&
-        (!activeFilters.has('fbm')     || !r.esFBA);
-      if (!ok) return false;
+      // Grupo buybox: win / lose / changed
+      const hasBBFilter = activeFilters.has('win') || activeFilters.has('lose') || activeFilters.has('changed');
+      if (hasBBFilter) {
+        const bbOk = (activeFilters.has('win')     && r.tenemos) ||
+                     (activeFilters.has('lose')    && r.hemosPerdido) ||
+                     (activeFilters.has('changed') && r.precioCambio);
+        if (!bbOk) return false;
+      }
+      // Grupo FBA: fba / fbm
+      const hasFBAFilter = activeFilters.has('fba') || activeFilters.has('fbm');
+      if (hasFBAFilter) {
+        const fbaOk = (activeFilters.has('fba') && r.esFBA) ||
+                      (activeFilters.has('fbm') && !r.esFBA);
+        if (!fbaOk) return false;
+      }
     }
     return true;
   });
@@ -589,60 +610,103 @@ function fmtOferta(val) {
   return '<span class="badge-oferta" title="'+val+'">🏷 '+label+'</span>';
 }
 
+function groupByAsin(rows) {
+  const map = new Map();
+  rows.forEach(r => {
+    if (!map.has(r.asin)) map.set(r.asin, { asin: r.asin, titulo: r.titulo, marca: r.marca, rating: r.rating, oferta: r.oferta, imgUrl: r.imgUrl, paises: [] });
+    map.get(r.asin).paises.push(r);
+  });
+  return [...map.values()];
+}
+
+function bbPill(r) {
+  const f = getFlag(r.pais);
+  if (r.tenemos)      return `<span class="country-pill win">${f} ✓</span>`;
+  if (r.hemosPerdido) return `<span class="country-pill lose">${f} ✗</span>`;
+  return `<span class="country-pill nobox">${f} —</span>`;
+}
+
 function renderTable() {
   const tbody = document.getElementById('tableBody');
   const start = (currentPage-1) * ROWS_PER_PAGE;
-  const page  = filteredData.slice(start, start+ROWS_PER_PAGE);
+  const grouped = groupByAsin(filteredData);
+  const page  = grouped.slice(start, start+ROWS_PER_PAGE);
 
   if (!page.length) {
-    tbody.innerHTML = `<tr><td colspan="12"><div class="empty"><h3>No hay resultados</h3><p>Prueba con otros filtros</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><h3>No hay resultados</h3><p>Prueba con otros filtros</p></div></td></tr>`;
     return;
   }
 
-  tbody.innerHTML = page.map(r => {
-    const proxiedUrl = r.imgUrl ? `https://images.weserv.nl/?url=${encodeURIComponent(r.imgUrl)}&w=100&h=100&fit=contain&bg=white` : '';
+  tbody.innerHTML = page.map((g, idx) => {
+    const proxiedUrl = g.imgUrl ? `https://images.weserv.nl/?url=${encodeURIComponent(g.imgUrl)}&w=100&h=100&fit=contain&bg=white` : '';
     const imgHtml = proxiedUrl
       ? `<img class="product-img" src="${proxiedUrl}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="product-img-placeholder" style="display:none">📦</div>`
       : `<div class="product-img-placeholder">📦</div>`;
 
-    let bbBadge;
-    if (r.tenemos) {
-      bbBadge = `<span class="badge win">✓ Zococity</span>`;
-    } else if (r.hemosPerdido) {
-      const nom = r.vendedor.length > 22 ? r.vendedor.slice(0,22)+'…' : r.vendedor;
-      bbBadge = `<span class="badge lose" title="${r.vendedor}">✗ ${nom}</span>`;
-    } else {
-      bbBadge = `<span class="badge nobox">— Sin BB</span>`;
-    }
+    const pills = g.paises.map(r => bbPill(r)).join('');
 
-    const cambio = r.precioCambio
-      ? `<span class="price-change ${r.cambio1d>0?'up':'down'}">${r.cambio1d>0?'▲':'▼'} ${Math.abs(r.cambio1d).toFixed(1)}%</span>`
-      : `<span style="color:#aab4c0;font-family:'DM Mono',monospace;font-size:12px">—</span>`;
+    const subRows = g.paises.map(r => {
+      let bbBadge;
+      if (r.tenemos) bbBadge = `<span class="badge win">✓ Zococity</span>`;
+      else if (r.hemosPerdido) { const n = r.vendedor.length>22?r.vendedor.slice(0,22)+'…':r.vendedor; bbBadge = `<span class="badge lose" title="${r.vendedor}">✗ ${n}</span>`; }
+      else bbBadge = `<span class="badge nobox">— Sin BB</span>`;
 
-    return `<tr>
-      <td style="padding:8px 8px 8px 14px"><div style="position:relative;width:52px;height:52px">${imgHtml}</div></td>
-      <td><span class="country-flag">${getFlag(r.pais)}</span></td>
-      <td>
-        <div class="product-name" title="${r.titulo}">${r.titulo||'—'}</div>
-        <div class="asin">${r.asin}</div>
-      </td>
-      <td style="font-size:12px;color:#6b7a8d">${r.marca||'—'}</td>
-      <td>${bbBadge}</td>
-      <td>${fmtP(r.precio)}</td>
-      <td>${fmtP(r.precioMin,'price-min')}</td>
-      <td>${cambio}</td>
-      <td><span class="${r.esFBA?'fba-yes':'fba-no'}">${r.esFBA?'FBA':'FBM'}</span></td>
-      <td>${fmtRating(r.rating)}</td>
-      <td>${fmtOferta(r.oferta)}</td>
-      <td><a class="btn-amazon" href="https://www.${getDomain(r.pais)}/dp/${r.asin}" target="_blank" rel="noopener">↗ Ver</a></td>
-    </tr>`;
+      const cambio = r.precioCambio
+        ? `<span class="price-change ${r.cambio1d>0?'up':'down'}">${r.cambio1d>0?'▲':'▼'} ${Math.abs(r.cambio1d).toFixed(1)}%</span>`
+        : `<span style="color:#aab4c0;font-family:'DM Mono',monospace;font-size:12px">—</span>`;
+
+      return `<tr class="sub-row">
+        <td></td>
+        <td><span style="font-size:22px">${getFlag(r.pais)}</span></td>
+        <td style="font-size:12px;color:#6b7a8d">${{ES:'España',DE:'Alemania',FR:'Francia',IT:'Italia'}[r.pais]||r.pais}</td>
+        <td>${bbBadge}</td>
+        <td>${fmtP(r.precio)} <span style="font-size:11px;color:#3498db;margin-left:4px">${r.precioMin!=null?'mín '+Number(r.precioMin).toFixed(2)+' €':''}</span></td>
+        <td>${cambio}</td>
+        <td><span class="${r.esFBA?'fba-yes':'fba-no'}">${r.esFBA?'FBA':'FBM'}</span> <a class="btn-amazon" href="https://www.${getDomain(r.pais)}/dp/${r.asin}" target="_blank" rel="noopener" style="margin-left:6px">↗ Ver</a></td>
+      </tr>`;
+    }).join('');
+
+    return `<tbody class="main-row" onclick="toggleRow('grp${idx}')">
+      <tr>
+        <td style="padding-left:14px"><span class="chevron" id="chev${idx}">▶</span></td>
+        <td style="padding:8px 8px 8px 4px"><div style="width:52px;height:52px;position:relative">${imgHtml}</div></td>
+        <td>
+          <div class="product-name" title="${g.titulo}">${g.titulo||'—'}</div>
+          <div class="asin">${g.asin}</div>
+        </td>
+        <td style="font-size:12px;color:#6b7a8d">${g.marca||'—'}</td>
+        <td><div class="country-badges">${pills}</div></td>
+        <td>${fmtRating(g.rating)}</td>
+        <td>${fmtOferta(g.oferta)}</td>
+      </tr>
+    </tbody>
+    <tbody class="sub-rows" id="grp${idx}">
+      <tr class="sub-row" style="background:#eef1f5">
+        <td></td>
+        <td></td>
+        <td style="font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.8px">País</td>
+        <td style="font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.8px">Buy Box</td>
+        <td style="font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.8px">Precio BB / Mín 30d</td>
+        <td style="font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.8px">Cambio</td>
+        <td style="font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.8px">FBA / Amazon</td>
+      </tr>
+      ${subRows}
+    </tbody>`;
   }).join('');
 }
 
+function toggleRow(id) {
+  const sub  = document.getElementById(id);
+  const idx  = id.replace('grp','');
+  const chev = document.getElementById('chev'+idx);
+  sub.classList.toggle('open');
+  chev.classList.toggle('open');
+  chev.textContent = chev.classList.contains('open') ? '▼' : '▶';
+}
+
 function renderPagination() {
-  const total = filteredData.length;
-  const pages = Math.ceil(total / ROWS_PER_PAGE);
-  document.getElementById('pagInfo').textContent = `${total} productos · Página ${currentPage} de ${Math.max(1,pages)}`;
+  const grouped = groupByAsin(filteredData); const total = grouped.length; const pages = Math.ceil(total / ROWS_PER_PAGE);
+  document.getElementById('pagInfo').textContent = `${total} productos (${filteredData.length} filas) · Página ${currentPage} de ${Math.max(1,pages)}`;
   let html = `<button class="pag-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>←</button>`;
   const range = [];
   for (let i=1; i<=pages; i++) {
