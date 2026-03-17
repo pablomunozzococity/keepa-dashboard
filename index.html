@@ -554,14 +554,15 @@ function applyFilters() {
 }
 
 function updateSummary() {
-  const win  = allData.filter(r => r.tenemos).length;
-  const lose = allData.filter(r => r.hemosPerdido).length;
+  const data = filteredData.length < allData.length ? filteredData : allData;
+  const win  = data.filter(r => r.tenemos).length;
+  const lose = data.filter(r => r.hemosPerdido).length;
   document.getElementById('cWin').textContent     = win;
   document.getElementById('cLose').textContent    = lose;
-  document.getElementById('cChanged').textContent = allData.filter(r => r.precioCambio).length;
-  document.getElementById('cNoBox').textContent   = allData.filter(r => !r.hayBuyBox).length;
-  document.getElementById('hWin').textContent     = win;
-  document.getElementById('hLose').textContent    = lose;
+  document.getElementById('cChanged').textContent = data.filter(r => r.precioCambio).length;
+  document.getElementById('cNoBox').textContent   = data.filter(r => !r.hayBuyBox).length;
+  document.getElementById('hWin').textContent     = allData.filter(r => r.tenemos).length;
+  document.getElementById('hLose').textContent    = allData.filter(r => r.hemosPerdido).length;
   document.getElementById('hTotal').textContent   = allData.length;
 }
 
@@ -625,79 +626,84 @@ function renderTable() {
   const tbody = document.getElementById('tableBody');
   const start = (currentPage-1) * ROWS_PER_PAGE;
   const grouped = groupByAsin(filteredData);
-  const page  = grouped.slice(start, start+ROWS_PER_PAGE);
+  const page = grouped.slice(start, start+ROWS_PER_PAGE);
 
   if (!page.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty"><h3>No hay resultados</h3><p>Prueba con otros filtros</p></div></td></tr>`;
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty"><h3>No hay resultados</h3><p>Prueba con otros filtros</p></div></td></tr>';
     return;
   }
 
-  tbody.innerHTML = page.map((g, idx) => {
-    const proxiedUrl = g.imgUrl ? `https://images.weserv.nl/?url=${encodeURIComponent(g.imgUrl)}&w=100&h=100&fit=contain&bg=white` : '';
+  let html = '';
+  page.forEach((g, idx) => {
+    const proxiedUrl = g.imgUrl ? 'https://images.weserv.nl/?url='+encodeURIComponent(g.imgUrl)+'&w=100&h=100&fit=contain&bg=white' : '';
     const imgHtml = proxiedUrl
-      ? `<img class="product-img" src="${proxiedUrl}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="product-img-placeholder" style="display:none">📦</div>`
-      : `<div class="product-img-placeholder">📦</div>`;
+      ? '<img class="product-img" src="'+proxiedUrl+'" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="product-img-placeholder" style="display:none">📦</div>'
+      : '<div class="product-img-placeholder">📦</div>';
 
     const pills = g.paises.map(r => bbPill(r)).join('');
 
-    const subRows = g.paises.map(r => {
+    // Main row
+    html += '<tr class="main-row" onclick="toggleRow('+idx+',this)" style="cursor:pointer">';
+    html += '<td style="padding-left:14px"><span class="chevron" id="chev'+idx+'">▶</span></td>';
+    html += '<td style="padding:8px 8px 8px 4px"><div style="width:52px;height:52px;position:relative">'+imgHtml+'</div></td>';
+    html += '<td><div class="product-name" title="'+g.titulo+'">'+( g.titulo||'—')+'</div><div class="asin">'+g.asin+'</div></td>';
+    html += '<td style="font-size:12px;color:#6b7a8d">'+(g.marca||'—')+'</td>';
+    html += '<td><div class="country-badges">'+pills+'</div></td>';
+    html += '<td>'+fmtRating(g.rating)+'</td>';
+    html += '<td>'+fmtOferta(g.oferta)+'</td>';
+    html += '</tr>';
+
+    // Sub header row (hidden by default)
+    html += '<tr class="sub-row sub-header-'+idx+'" style="display:none;background:#eef1f5">';
+    html += '<td></td><td></td>';
+    html += '<td style="font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.8px">País</td>';
+    html += '<td style="font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.8px">Buy Box</td>';
+    html += '<td style="font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.8px">Precio BB / Mín 30d</td>';
+    html += '<td style="font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.8px">Cambio</td>';
+    html += '<td style="font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.8px">FBA / Amazon</td>';
+    html += '</tr>';
+
+    // Sub data rows (hidden by default)
+    g.paises.forEach(r => {
       let bbBadge;
-      if (r.tenemos) bbBadge = `<span class="badge win">✓ Zococity</span>`;
-      else if (r.hemosPerdido) { const n = r.vendedor.length>22?r.vendedor.slice(0,22)+'…':r.vendedor; bbBadge = `<span class="badge lose" title="${r.vendedor}">✗ ${n}</span>`; }
-      else bbBadge = `<span class="badge nobox">— Sin BB</span>`;
+      if (r.tenemos) bbBadge = '<span class="badge win">✓ Zococity</span>';
+      else if (r.hemosPerdido) { const n = r.vendedor.length>22?r.vendedor.slice(0,22)+'…':r.vendedor; bbBadge = '<span class="badge lose" title="'+r.vendedor+'">✗ '+n+'</span>'; }
+      else bbBadge = '<span class="badge nobox">— Sin BB</span>';
 
       const cambio = r.precioCambio
-        ? `<span class="price-change ${r.cambio1d>0?'up':'down'}">${r.cambio1d>0?'▲':'▼'} ${Math.abs(r.cambio1d).toFixed(1)}%</span>`
-        : `<span style="color:#aab4c0;font-family:'DM Mono',monospace;font-size:12px">—</span>`;
+        ? '<span class="price-change '+(r.cambio1d>0?'up':'down')+'">'+(r.cambio1d>0?'▲':'▼')+' '+Math.abs(r.cambio1d).toFixed(1)+'%</span>'
+        : '<span style="color:#aab4c0;font-family:'DM Mono',monospace;font-size:12px">—</span>';
 
-      return `<tr class="sub-row">
-        <td></td>
-        <td><span style="font-size:22px">${getFlag(r.pais)}</span></td>
-        <td style="font-size:12px;color:#6b7a8d">${{ES:'España',DE:'Alemania',FR:'Francia',IT:'Italia'}[r.pais]||r.pais}</td>
-        <td>${bbBadge}</td>
-        <td>${fmtP(r.precio)} <span style="font-size:11px;color:#3498db;margin-left:4px">${r.precioMin!=null?'mín '+Number(r.precioMin).toFixed(2)+' €':''}</span></td>
-        <td>${cambio}</td>
-        <td><span class="${r.esFBA?'fba-yes':'fba-no'}">${r.esFBA?'FBA':'FBM'}</span> <a class="btn-amazon" href="https://www.${getDomain(r.pais)}/dp/${r.asin}" target="_blank" rel="noopener" style="margin-left:6px">↗ Ver</a></td>
-      </tr>`;
-    }).join('');
+      const nombres = {ES:'España',DE:'Alemania',FR:'Francia',IT:'Italia'};
 
-    return `<tbody class="main-row">
-      <tr onclick="toggleRow('grp${idx}')" style="cursor:pointer">
-        <td style="padding-left:14px"><span class="chevron" id="chev${idx}">▶</span></td>
-        <td style="padding:8px 8px 8px 4px"><div style="width:52px;height:52px;position:relative">${imgHtml}</div></td>
-        <td>
-          <div class="product-name" title="${g.titulo}">${g.titulo||'—'}</div>
-          <div class="asin">${g.asin}</div>
-        </td>
-        <td style="font-size:12px;color:#6b7a8d">${g.marca||'—'}</td>
-        <td><div class="country-badges">${pills}</div></td>
-        <td>${fmtRating(g.rating)}</td>
-        <td>${fmtOferta(g.oferta)}</td>
-      </tr>
-    </tbody>
-    <tbody class="sub-rows" id="grp${idx}" style="display:none">
-      <tr class="sub-row" style="background:#eef1f5">
-        <td></td>
-        <td></td>
-        <td style="font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.8px">País</td>
-        <td style="font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.8px">Buy Box</td>
-        <td style="font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.8px">Precio BB / Mín 30d</td>
-        <td style="font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.8px">Cambio</td>
-        <td style="font-size:11px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:.8px">FBA / Amazon</td>
-      </tr>
-      ${subRows}
-    </tbody>`;
-  }).join('');
+      html += '<tr class="sub-row sub-data-'+idx+'" style="display:none">';
+      html += '<td></td>';
+      html += '<td><span style="font-size:22px">'+getFlag(r.pais)+'</span></td>';
+      html += '<td style="font-size:12px;color:#6b7a8d">'+(nombres[r.pais]||r.pais)+'</td>';
+      html += '<td>'+bbBadge+'</td>';
+      html += '<td>'+fmtP(r.precio)+(r.precioMin!=null?' <span style="font-size:11px;color:#3498db;margin-left:4px">mín '+Number(r.precioMin).toFixed(2)+' €</span>':'')+'</td>';
+      html += '<td>'+cambio+'</td>';
+      html += '<td><span class="'+(r.esFBA?'fba-yes':'fba-no')+'">'+(r.esFBA?'FBA':'FBM')+'</span> <a class="btn-amazon" href="https://www.'+getDomain(r.pais)+'/dp/'+r.asin+'" target="_blank" rel="noopener" style="margin-left:6px">↗ Ver</a></td>';
+      html += '</tr>';
+    });
+  });
+
+  tbody.innerHTML = html;
 }
 
-function toggleRow(id) {
-  const sub  = document.getElementById(id);
-  const idx  = id.replace('grp','');
+function toggleRow(idx, mainTr) {
   const chev = document.getElementById('chev'+idx);
-  if (sub.style.display === 'table-row-group') {
-    sub.style.display = 'none';
+  const isOpen = chev.textContent === '▼';
+  const table = document.getElementById('tableBody');
+  const allRows = table.querySelectorAll('.sub-header-'+idx+', .sub-data-'+idx);
+  if (isOpen) {
+    allRows.forEach(r => r.style.display = 'none');
     chev.textContent = '▶';
   } else {
+    allRows.forEach(r => r.style.display = 'table-row');
+    chev.textContent = '▼';
+  }
+} else {
     sub.style.display = 'table-row-group';
     chev.textContent = '▼';
   }
